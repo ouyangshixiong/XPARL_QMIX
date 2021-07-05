@@ -19,7 +19,6 @@ from actor import Actor
 class Learner(object):
     def __init__(self, config):
         #=== Create Agent ===
-        self.config = deepcopy(config)
         env = StarCraft2Env(
             map_name=config['scenario'], difficulty=config['difficulty'])
         env = SC2EnvWrapper(env)
@@ -28,6 +27,7 @@ class Learner(object):
         config['state_shape'] = env.state_shape
         config['n_agents'] = env.n_agents
         config['n_actions'] = env.n_actions
+        self.config = deepcopy(config)
 
         agent_model = RNNModel(config['obs_shape'], config['n_actions'],
                            config['rnn_hidden_dim'])
@@ -42,10 +42,10 @@ class Learner(object):
                     algorithm, config['exploration_start'], config['min_exploration'],
                     config['exploration_decay'], config['update_target_interval'])
         #=== Learner ===
+        self.total_steps = 0
         self.rpm = EpisodeReplayBuffer(config['replay_buffer_size'])
 
         #=== Remote Actor ===
-        self.sample_total_steps = 0
         self.create_actors()
 
     def create_actors(self):
@@ -58,7 +58,6 @@ class Learner(object):
         self.start_time = time.time()
 
     def step(self):
-        train_batch = defaultdict(list)
         # get the total train data of all the actors.
         sample_data_object_ids = [
             remote_actor.sample() for remote_actor in self.remote_actors
@@ -67,12 +66,27 @@ class Learner(object):
             future_object.get() for future_object in sample_data_object_ids
         ]
         for sample_data in sample_datas:
-            for key, value in sample_data.items():
-                train_batch[key].append(value)
-            self.sample_total_steps += len(sample_data['obs'])
+            self.rpm.add(sample_data['episode_experience'])
+            
+        mean_loss = []
+        mean_td_error = []
+        if self.rpm.count > config['memory_warmup_size']:
+            for _ in range(2):
+                s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
+                        filled_batch = self.rpm.sample_batch(config['batch_size'])
+                loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
+                                            obs_batch, available_actions_batch,
+                                            filled_batch)
+                mean_loss.append(loss)
+                mean_td_error.append(td_error)
+
+        mean_loss = np.mean(mean_loss) if mean_loss else None
+        mean_td_error = np.mean(mean_td_error) if mean_td_error else None
+        return mean_loss, mean_td_error
+
 
     def should_stop(self):
-        return self.sample_total_steps >= self.config['max_sample_steps']
+        return self.total_steps >= self.config['training_steps']
 
 
 if __name__ == '__main__':
@@ -83,5 +97,7 @@ if __name__ == '__main__':
     while not learner.should_stop():
         start = time.time()
         while time.time() - start < config['log_metrics_interval_s']:
-            learner.step()
-        learner.log_metrics()
+            loss, td_error = learner.step()
+            summary.add_scalar('train_loss', loss, learner.total_steps)
+            summary.add_scalar('train_td_error:', td_error, learner.total_steps)
+        
