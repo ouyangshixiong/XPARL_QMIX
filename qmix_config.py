@@ -43,6 +43,7 @@ QMixConfig = {
     'master_address': 'localhost:8010',
     'actor_num': 2,
     'env_num': 2,
+    'sample_batch_episode': 2,
     'log_metrics_interval_s': 10,
     'scenario': '3m',
     'replay_buffer_size': 5000,

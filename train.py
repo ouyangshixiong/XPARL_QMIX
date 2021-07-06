@@ -66,8 +66,14 @@ class Learner(object):
             future_object.get() for future_object in sample_data_object_ids
         ]
         for sample_data in sample_datas:
-            self.rpm.add(sample_data['episode_experience'])
-            
+            for data in sample_data:
+                if 'steps' == data:
+                    for steps in sample_data[data]:
+                        self.total_steps += steps
+                elif 'episode_experience' == data:
+                    for episode_experience in sample_data[data]:
+                        self.rpm.add(episode_experience)
+
         mean_loss = []
         mean_td_error = []
         if self.rpm.count > config['memory_warmup_size']:
@@ -92,8 +98,10 @@ class Learner(object):
 if __name__ == '__main__':
     from qmix_config import QMixConfig as config
     learner = Learner(config)
+    # warm up
+    while learner.rpm.count < config['memory_warmup_size']:
+        learner.step()
 
-    assert config['log_metrics_interval_s'] > 0
     while not learner.should_stop():
         start = time.time()
         while time.time() - start < config['log_metrics_interval_s']:

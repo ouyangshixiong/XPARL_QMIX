@@ -41,41 +41,40 @@ class Actor(object):
                     config['exploration_decay'], config['update_target_interval'])
 
     def sample(self):
-        episode_limit = self.config['episode_limit']
-        self.qmix_agent.reset_agent()
-        episode_reward = 0.0
-        episode_step = 0
-        terminated = False
-        state, obs = self.env.reset()
-
-        episode_experience = EpisodeExperience(episode_limit)
-
-        while not terminated:
-            available_actions = self.env.get_available_actions()
-            actions = self.qmix_agent.sample(obs, available_actions)
-            next_state, next_obs, reward, terminated = self.env.step(actions)
-            episode_reward += reward
-            episode_step += 1
-            episode_experience.add(state, actions, [reward], [terminated], obs,
-                                available_actions, [0])
-            state = next_state
-            obs = next_obs
-
         sample_data = defaultdict(list)
-        sample_data['steps'] = episode_experience.count
-        # fullfill
-        # to reduce computing resouce in learnning thread, put these lines here
-        state_zero = np.zeros_like(state, dtype=state.dtype)
-        actions_zero = np.zeros_like(actions, dtype=actions.dtype)
-        obs_zero = np.zeros_like(obs, dtype=obs.dtype)
-        available_actions_zero = np.zeros_like(
-            available_actions, dtype=available_actions.dtype)
-        reward_zero = 0
-        terminated_zero = True
-        for _ in range(episode_experience.count, self.config['episode_limit']):
-            episode_experience.add(state_zero, actions_zero, [reward_zero],
-                                [terminated_zero], obs_zero,
-                                available_actions_zero, [1])
-        sample_data['episode_experience'] = episode_experience
+        for i in range(self.config['sample_batch_episode']):
+            self.qmix_agent.reset_agent()
+            episode_reward = 0.0
+            episode_step = 0
+            terminated = False
+            state, obs = self.env.reset()
+            episode_experience = EpisodeExperience(self.config['episode_limit'])
+
+            while not terminated:
+                available_actions = self.env.get_available_actions()
+                actions = self.qmix_agent.sample(obs, available_actions)
+                next_state, next_obs, reward, terminated = self.env.step(actions)
+                episode_reward += reward
+                episode_step += 1
+                episode_experience.add(state, actions, [reward], [terminated], obs,
+                                    available_actions, [0])
+                state = next_state
+                obs = next_obs
+
+            sample_data['steps'].extend([episode_experience.count])
+            # fullfill
+            # to reduce computing resouce in learnning thread, put these lines here
+            state_zero = np.zeros_like(state, dtype=state.dtype)
+            actions_zero = np.zeros_like(actions, dtype=actions.dtype)
+            obs_zero = np.zeros_like(obs, dtype=obs.dtype)
+            available_actions_zero = np.zeros_like(
+                available_actions, dtype=available_actions.dtype)
+            reward_zero = 0
+            terminated_zero = True
+            for _ in range(episode_experience.count, self.config['episode_limit']):
+                episode_experience.add(state_zero, actions_zero, [reward_zero],
+                                    [terminated_zero], obs_zero,
+                                    available_actions_zero, [1])
+            sample_data['episode_experience'].extend([episode_experience])
         return sample_data
 
