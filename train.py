@@ -21,12 +21,12 @@ class Learner(object):
         #=== Create Agent ===
         env = StarCraft2Env(
             map_name=config['scenario'], difficulty=config['difficulty'])
-        env = SC2EnvWrapper(env)
-        config['episode_limit'] = env.episode_limit
-        config['obs_shape'] = env.obs_shape
-        config['state_shape'] = env.state_shape
-        config['n_agents'] = env.n_agents
-        config['n_actions'] = env.n_actions
+        self.env = SC2EnvWrapper(env)
+        config['episode_limit'] = self.env.episode_limit
+        config['obs_shape'] = self.env.obs_shape
+        config['state_shape'] = self.env.state_shape
+        config['n_agents'] = self.env.n_agents
+        config['n_actions'] = self.env.n_actions
         self.config = deepcopy(config)
 
         agent_model = RNNModel(config['obs_shape'], config['n_actions'],
@@ -94,6 +94,23 @@ class Learner(object):
     def should_stop(self):
         return self.total_steps >= self.config['training_steps']
 
+    def run_evaluate_episode(self):
+        self.qmix_agent.reset_agent()
+        episode_reward = 0.0
+        episode_step = 0
+        terminated = False
+        state, obs = self.env.reset()
+
+        while not terminated:
+            available_actions = self.env.get_available_actions()
+            actions = self.qmix_agent.predict(obs, available_actions)
+            state, obs, reward, terminated = self.env.step(actions)
+            episode_step += 1
+            episode_reward += reward
+
+        is_win = self.env.win_counted
+        return episode_reward, episode_step, is_win
+
 
 if __name__ == '__main__':
     from qmix_config import QMixConfig as config
@@ -108,4 +125,20 @@ if __name__ == '__main__':
             loss, td_error = learner.step()
             summary.add_scalar('train_loss', loss, learner.total_steps)
             summary.add_scalar('train_td_error:', td_error, learner.total_steps)
+
+            if int(learner.total_steps/100) % int(config['test_steps']/100) == 0:
+                eval_reward_buffer = []
+                eval_steps_buffer = []
+                eval_is_win_buffer = []
+                for _ in range(3):
+                    eval_reward, eval_step, eval_is_win = learner.run_evaluate_episode()
+                    eval_reward_buffer.append(eval_reward)
+                    eval_steps_buffer.append(eval_step)
+                    eval_is_win_buffer.append(eval_is_win)
+                summary.add_scalar('eval_reward', np.mean(eval_reward_buffer),
+                               learner.total_steps)
+                summary.add_scalar('eval_steps', np.mean(eval_steps_buffer),
+                               learner.total_steps)
+                summary.add_scalar('eval_win_rate', np.mean(eval_is_win_buffer),
+                               learner.total_steps)
         

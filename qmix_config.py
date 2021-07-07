@@ -41,8 +41,8 @@ QMixConfig:
 
 QMixConfig = {
     'master_address': 'localhost:8010',
-    'actor_num': 2,
-    'env_num': 2,
+    'actor_num': 1,
+    'env_num': 1,
     'sample_batch_episode': 2,
     'log_metrics_interval_s': 10,
     'scenario': '3m',
@@ -58,7 +58,7 @@ QMixConfig = {
     'update_target_interval': 2000,
     'batch_size': 16,
     'training_steps': 1000000,
-    'test_steps': 1000,
+    'test_steps': 500,
     'clip_grad_norm': 10,
     'hypernet_layers': 2,
     'hypernet_embed_dim': 64,
