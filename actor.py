@@ -26,14 +26,14 @@ class Actor(object):
         self.config['n_agents'] = self.env.n_agents
         self.config['n_actions'] = self.env.n_actions
 
-        agent_model = RNNModel(config['obs_shape'], config['n_actions'],
+        self.agent_model = RNNModel(config['obs_shape'], config['n_actions'],
                            config['rnn_hidden_dim'])
         # 不需要的                   
         qmixer_model = QMixerModel(
                     config['n_agents'], config['state_shape'], config['mixing_embed_dim'],
                     config['hypernet_layers'], config['hypernet_embed_dim'])
 
-        algorithm = QMIX(agent_model, qmixer_model, config['double_q'],
+        algorithm = QMIX(self.agent_model, qmixer_model, config['double_q'],
                     config['gamma'], config['lr'], config['clip_grad_norm'])
 
         self.qmix_agent = QMixAgent(
@@ -77,4 +77,6 @@ class Actor(object):
                                     available_actions_zero, [1])
             sample_data['episode_experience'].extend([episode_experience])
         return sample_data
+    def set_weights(self, params):
+        self.agent_model.set_weights(params)
 

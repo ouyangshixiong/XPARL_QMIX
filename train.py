@@ -29,13 +29,13 @@ class Learner(object):
         config['n_actions'] = self.env.n_actions
         self.config = deepcopy(config)
 
-        agent_model = RNNModel(config['obs_shape'], config['n_actions'],
+        self.agent_model = RNNModel(config['obs_shape'], config['n_actions'],
                            config['rnn_hidden_dim'])
-        qmixer_model = QMixerModel(
+        self.qmixer_model = QMixerModel(
                     config['n_agents'], config['state_shape'], config['mixing_embed_dim'],
                     config['hypernet_layers'], config['hypernet_embed_dim'])
 
-        algorithm = QMIX(agent_model, qmixer_model, config['double_q'],
+        algorithm = QMIX(self.agent_model, self.qmixer_model, config['double_q'],
                     config['gamma'], config['lr'], config['clip_grad_norm'])
 
         self.qmix_agent = QMixAgent(
@@ -58,6 +58,11 @@ class Learner(object):
         self.start_time = time.time()
 
     def step(self):
+        latest_params = self.agent_model.get_weights()
+        # setting the actor to the latest_params
+        for remote_actor in self.remote_actors:
+            remote_actor.set_weights(latest_params)
+
         # get the total train data of all the actors.
         sample_data_object_ids = [
             remote_actor.sample() for remote_actor in self.remote_actors
