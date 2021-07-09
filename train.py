@@ -58,11 +58,6 @@ class Learner(object):
         self.start_time = time.time()
 
     def step(self):
-        latest_params = self.agent_model.get_weights()
-        # setting the actor to the latest_params
-        for remote_actor in self.remote_actors:
-            remote_actor.set_weights(latest_params)
-
         # get the total train data of all the actors.
         sample_data_object_ids = [
             remote_actor.sample() for remote_actor in self.remote_actors
@@ -90,6 +85,12 @@ class Learner(object):
                                             filled_batch)
                 mean_loss.append(loss)
                 mean_td_error.append(td_error)
+
+            agent_network_params = self.agent_model.get_weights()
+            qmix_network_params = self.qmixer_model.get_weights()
+            # update remote networks
+            for remote_actor in self.remote_actors:
+                remote_actor.set_weights(agent_network_params, qmix_network_params)
 
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None
