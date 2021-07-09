@@ -77,7 +77,7 @@ class Learner(object):
         mean_loss = []
         mean_td_error = []
         if self.rpm.count > self.config['memory_warmup_size']:
-            for _ in range(2*self.config['actor_num']):
+            for _ in range(2*self.config["sample_batch_episode"]*self.config['actor_num']):
                 s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                         filled_batch = self.rpm.sample_batch(self.config['batch_size'])
                 loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
