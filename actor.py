@@ -2,7 +2,7 @@ from smac.env import StarCraft2Env
 from env_wrapper import SC2EnvWrapper
 from qmixer_model import QMixerModel
 from rnn_model import RNNModel
-from parl.algorithms import QMIX
+from qmix import QMIX
 from qmix_agent import QMixAgent
 from replay_buffer import EpisodeExperience
 import numpy as np
