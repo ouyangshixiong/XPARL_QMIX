@@ -65,6 +65,8 @@ class Learner(object):
         sample_datas = [
             future_object.get() for future_object in sample_data_object_ids
         ]
+        mean_loss = []
+        mean_td_error = []
         for sample_data in sample_datas:
             for data in sample_data:
                 if 'steps' == data:
@@ -74,23 +76,20 @@ class Learner(object):
                     for episode_experience in sample_data[data]:
                         self.rpm.add(episode_experience)
 
-        mean_loss = []
-        mean_td_error = []
-        if self.rpm.count > self.config['memory_warmup_size']:
-            for _ in range(2*self.config["sample_batch_episode"]*self.config['actor_num']):
-                s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
-                        filled_batch = self.rpm.sample_batch(self.config['batch_size'])
-                loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
+            if self.rpm.count > self.config['memory_warmup_size']:
+                for _ in range(self.config['sample_batch_episode']):
+                    s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
+                            filled_batch = self.rpm.sample_batch(self.config['batch_size'])
+                    loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
                                             obs_batch, available_actions_batch,
                                             filled_batch)
-                mean_loss.append(loss)
-                mean_td_error.append(td_error)
-
-            agent_network_params = self.agent_model.get_weights()
-            qmix_network_params = self.qmixer_model.get_weights()
-            # update remote networks
-            for remote_actor in self.remote_actors:
-                remote_actor.set_weights(agent_network_params, qmix_network_params)
+                    mean_loss.append(loss)
+                    mean_td_error.append(td_error)
+                agent_network_params = self.agent_model.get_weights()
+                qmix_network_params = self.qmixer_model.get_weights()
+                # update remote networks
+                for remote_actor in self.remote_actors:
+                    remote_actor.set_weights(agent_network_params, qmix_network_params)
 
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None
