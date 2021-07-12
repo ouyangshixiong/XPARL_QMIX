@@ -85,11 +85,11 @@ class Learner(object):
                                             filled_batch)
                     mean_loss.append(loss)
                     mean_td_error.append(td_error)
-                agent_network_params = self.agent_model.get_weights()
-                qmix_network_params = self.qmixer_model.get_weights()
-                # update remote networks
-                for remote_actor in self.remote_actors:
-                    remote_actor.set_weights(agent_network_params, qmix_network_params)
+            agent_network_params = self.agent_model.get_weights()
+            qmix_network_params = self.qmixer_model.get_weights()
+            # update remote networks
+            for remote_actor in self.remote_actors:
+                remote_actor.set_weights(agent_network_params, qmix_network_params)
 
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None
