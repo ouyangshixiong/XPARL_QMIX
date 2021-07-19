@@ -78,6 +78,7 @@ class Learner(object):
 
             if self.rpm.count > self.config['memory_warmup_size']:
                 for _ in range(self.config['sample_batch_episode']):
+                    bt = time.time()
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
@@ -85,6 +86,8 @@ class Learner(object):
                                             filled_batch)
                     mean_loss.append(loss)
                     mean_td_error.append(td_error)
+                    et = time.time()
+                    print("time cost for learn func is:{}s.".format(et-bt))
             agent_network_params = self.agent_model.get_weights()
             qmix_network_params = self.qmixer_model.get_weights()
             # update remote networks
