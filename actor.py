@@ -32,11 +32,11 @@ class Actor(object):
                     config['n_agents'], config['state_shape'], config['mixing_embed_dim'],
                     config['hypernet_layers'], config['hypernet_embed_dim'])
 
-        algorithm = QMIX(self.agent_model, self.qmixer_model, config['double_q'],
+        self.algorithm = QMIX(self.agent_model, self.qmixer_model, config['double_q'],
                     config['gamma'], config['lr'], config['clip_grad_norm'])
 
         self.qmix_agent = QMixAgent(
-                    algorithm, config['exploration_start'], config['min_exploration'],
+                    self.algorithm, config['exploration_start'], config['min_exploration'],
                     config['exploration_decay'], config['update_target_interval'])
 
     def sample(self):
@@ -77,7 +77,9 @@ class Actor(object):
             sample_data['episode_experience'].extend([episode_experience])
         return sample_data
         
-    def set_weights(self, agent_params, qmix_params):
+    def update_remote_network(self, agent_params, qmix_params, update_target_q):
         self.agent_model.set_weights(agent_params)
         self.qmixer_model.set_weights(qmix_params)
+        if update_target_q:
+            self.algorithm.sync_target()
 
