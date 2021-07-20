@@ -77,8 +77,8 @@ class Learner(object):
                         self.rpm.add(episode_experience)
 
             if self.rpm.count > self.config['memory_warmup_size']:
-                for _ in range(self.config['sample_batch_episode']):
-                    bt = time.time()
+                for _ in range(2*self.config['sample_batch_episode']):
+                    #bt = time.time()
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
@@ -86,8 +86,8 @@ class Learner(object):
                                             filled_batch)
                     mean_loss.append(loss)
                     mean_td_error.append(td_error)
-                    et = time.time()
-                    print("time cost for learn func is:{}s.".format(et-bt))
+                    #et = time.time()
+                    #print("time cost for learn func is:{}s.".format(et-bt))
             agent_network_params = self.agent_model.get_weights()
             qmix_network_params = self.qmixer_model.get_weights()
             # update remote networks
@@ -119,6 +119,9 @@ class Learner(object):
         is_win = self.env.win_counted
         return episode_reward, episode_step, is_win
 
+    def save(self):
+        self.env.save()
+
 
 if __name__ == '__main__':
     from qmix_config import QMixConfig as config
@@ -147,6 +150,12 @@ if __name__ == '__main__':
                                learner.total_steps)
                 summary.add_scalar('eval_steps', np.mean(eval_steps_buffer),
                                learner.total_steps)
-                summary.add_scalar('eval_win_rate', np.mean(eval_is_win_buffer),
+                mean_win_rate = np.mean(eval_is_win_buffer)
+                summary.add_scalar('eval_win_rate', mean_win_rate,
                                learner.total_steps)
+                #if mean_win_rate == 1:
+                    #print("save replay!")
+                    #learner.save()
+                    
+
         

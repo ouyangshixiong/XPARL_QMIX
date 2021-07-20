@@ -76,6 +76,7 @@ class Actor(object):
                                     available_actions_zero, [1])
             sample_data['episode_experience'].extend([episode_experience])
         return sample_data
+        
     def set_weights(self, agent_params, qmix_params):
         self.agent_model.set_weights(agent_params)
         self.qmixer_model.set_weights(qmix_params)

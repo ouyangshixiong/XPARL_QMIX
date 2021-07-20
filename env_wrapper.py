@@ -80,3 +80,6 @@ class SC2EnvWrapper(object):
         next_obs = np.concatenate(
             [next_obs, last_actions_one_hot, self.agents_id_one_hot], axis=-1)
         return next_state, next_obs, reward, terminated
+
+    def save(self):
+        self.env.save_replay()
