@@ -35,14 +35,15 @@ class Learner(object):
                     config['n_agents'], config['state_shape'], config['mixing_embed_dim'],
                     config['hypernet_layers'], config['hypernet_embed_dim'])
 
-        algorithm = QMIX(self.agent_model, self.qmixer_model, config['double_q'],
+        self.algorithm = QMIX(self.agent_model, self.qmixer_model, config['double_q'],
                     config['gamma'], config['lr'], config['clip_grad_norm'])
 
         self.qmix_agent = QMixAgent(
-                    algorithm, config['exploration_start'], config['min_exploration'],
+                    self.algorithm, config['exploration_start'], config['min_exploration'],
                     config['exploration_decay'], config['update_target_interval'])
         #=== Learner ===
-        self.total_steps = 0
+        #self.total_steps = 0
+        self.central_steps = 0
         self.learn_steps = 0
         self.target_update_count = 0
         self.rpm = EpisodeReplayBuffer(config['replay_buffer_size'])
@@ -60,6 +61,7 @@ class Learner(object):
         self.start_time = time.time()
 
     def step(self):
+        self.central_steps += 1
         # get the total train data of all the actors.
         sample_data_object_ids = [
             remote_actor.sample() for remote_actor in self.remote_actors
@@ -69,39 +71,44 @@ class Learner(object):
         ]
         mean_loss = []
         mean_td_error = []
+        bt = time.time()
         for sample_data in sample_datas:
             for data in sample_data:
-                if 'steps' == data:
-                    for steps in sample_data[data]:
-                        self.total_steps += steps
-                elif 'episode_experience' == data:
+                #if 'steps' == data:
+                    #for steps in sample_data[data]:
+                        #self.total_steps += steps
+                #elif 'episode_experience' == data:
+                if 'episode_experience' == data:
                     for episode_experience in sample_data[data]:
                         self.rpm.add(episode_experience)
-
             if self.rpm.count > self.config['memory_warmup_size']:
-                for _ in range(2*self.config['sample_batch_episode']):
-                    #bt = time.time()
+                for _ in range(self.config['sample_batch_episode']):
+                    self.learn_steps += 1
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
                                             obs_batch, available_actions_batch,
                                             filled_batch)
-                    self.learn_steps += 1
+                    # update remote networks
+                    if self.learn_steps % self.config['update_target_interval'] == 0:
+                        update_target_q = True
+                        agent_target = self.algorithm.target_agent_model.get_weights()
+                        qmix_target = self.algorithm.target_qmixer_model.get_weights()
+                        self.target_update_count += 1
+                    else:
+                        update_target_q = False
+
+                    for remote_actor in self.remote_actors:
+                        agent_network_params = self.agent_model.get_weights()
+                        qmix_network_params = self.qmixer_model.get_weights()
+                        remote_actor.update_network(agent_network_params, qmix_network_params)
+                        if update_target_q:
+                            remote_actor.update_target_network(agent_target, qmix_target)
+                        
                     mean_loss.append(loss)
                     mean_td_error.append(td_error)
-                    #et = time.time()
-                    #print("time cost for learn func is:{}s.".format(et-bt))
-            agent_network_params = self.agent_model.get_weights()
-            qmix_network_params = self.qmixer_model.get_weights()
-
-            # update remote networks
-            if self.learn_steps % self.config['update_target_interval'] == 0:
-                update_target_q = True
-                self.target_update_count += 1
-            else:
-                update_target_q = False
-            for remote_actor in self.remote_actors:
-                remote_actor.update_remote_network(agent_network_params, qmix_network_params, update_target_q)
+        et = time.time()
+        print("time cost for learn func is:{}s.".format( et-bt ))
 
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None
@@ -109,7 +116,8 @@ class Learner(object):
 
 
     def should_stop(self):
-        return self.total_steps >= self.config['training_steps']
+        #return self.total_steps >= self.config['training_steps']
+        return self.central_steps >= self.config['training_steps']
 
     def run_evaluate_episode(self):
         self.qmix_agent.reset_agent()
@@ -140,33 +148,31 @@ if __name__ == '__main__':
         learner.step()
 
     while not learner.should_stop():
-        start = time.time()
-        while time.time() - start < config['log_metrics_interval_s']:
-            loss, td_error = learner.step()
-            summary.add_scalar('train_loss', loss, learner.total_steps)
-            summary.add_scalar('train_td_error:', td_error, learner.total_steps)
+        loss, td_error = learner.step()
+        summary.add_scalar('train_loss', loss, learner.central_steps)
+        summary.add_scalar('train_td_error:', td_error, learner.central_steps)
 
-            if int(learner.total_steps/100) % int(config['test_steps']/100) == 0:
-                eval_reward_buffer = []
-                eval_steps_buffer = []
-                eval_is_win_buffer = []
-                for _ in range(3):
-                    eval_reward, eval_step, eval_is_win = learner.run_evaluate_episode()
-                    eval_reward_buffer.append(eval_reward)
-                    eval_steps_buffer.append(eval_step)
-                    eval_is_win_buffer.append(eval_is_win)
-                summary.add_scalar('eval_reward', np.mean(eval_reward_buffer),
-                               learner.total_steps)
-                summary.add_scalar('eval_steps', np.mean(eval_steps_buffer),
-                               learner.total_steps)
-                mean_win_rate = np.mean(eval_is_win_buffer)
-                summary.add_scalar('eval_win_rate', mean_win_rate,
-                               learner.total_steps)
-                summary.add_scalar('target_update_count',
-                               learner.target_update_count, learner.total_steps)
-                #if mean_win_rate == 1:
-                    #print("save replay!")
-                    #learner.save()
+        if learner.central_steps % config['test_steps'] == 0:
+            eval_reward_buffer = []
+            eval_steps_buffer = []
+            eval_is_win_buffer = []
+            for _ in range(3):
+                eval_reward, eval_step, eval_is_win = learner.run_evaluate_episode()
+                eval_reward_buffer.append(eval_reward)
+                eval_steps_buffer.append(eval_step)
+                eval_is_win_buffer.append(eval_is_win)
+            summary.add_scalar('eval_reward', np.mean(eval_reward_buffer),
+                            learner.central_steps)
+            summary.add_scalar('eval_steps', np.mean(eval_steps_buffer),
+                            learner.central_steps)
+            mean_win_rate = np.mean(eval_is_win_buffer)
+            summary.add_scalar('eval_win_rate', mean_win_rate,
+                            learner.central_steps)
+            summary.add_scalar('target_update_count',
+                            learner.target_update_count, learner.central_steps)
+            #if mean_win_rate == 1:
+                #print("save replay!")
+                #learner.save()
                     
 
         

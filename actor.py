@@ -77,9 +77,12 @@ class Actor(object):
             sample_data['episode_experience'].extend([episode_experience])
         return sample_data
         
-    def update_remote_network(self, agent_params, qmix_params, update_target_q):
+    def update_network(self, agent_params, qmix_params):
         self.agent_model.set_weights(agent_params)
         self.qmixer_model.set_weights(qmix_params)
-        if update_target_q:
-            self.algorithm.sync_target()
+
+    
+    def update_target_network(self, agent_params, qmix_params):
+        self.algorithm.target_agent_model.set_weights(agent_params)
+        self.algorithm.target_qmixer_model.set_weights(qmix_params)        
 
