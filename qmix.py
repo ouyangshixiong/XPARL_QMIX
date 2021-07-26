@@ -62,8 +62,28 @@ class QMIX(parl.Algorithm):
     def predict_local_q(self, obs, hidden_state):
         return self.agent_model(obs, hidden_state)
 
+    def localQ(self, state_batch, obs_batch):
+        local_qs = []
+        target_local_qs = []
+        batch_size = state_batch.shape[0]
+        episode_len = state_batch.shape[1]
+        for t in range(episode_len):
+            obs = obs_batch[:, t, :, :]
+            obs = obs.reshape(shape=(-1, obs_batch.shape[-1]))
+            local_q, self.hidden_states = self.agent_model(
+                obs, self.hidden_states)
+            local_q = local_q.reshape(shape=(batch_size, self.n_agents, -1))
+            local_qs.append(local_q)
+
+            target_local_q, self.target_hidden_states = self.target_agent_model(
+                obs, self.target_hidden_states)
+            target_local_q = target_local_q.reshape(
+                shape=(batch_size, self.n_agents, -1))
+            target_local_qs.append(target_local_q)
+        return local_qs, target_local_q
+
     def learn(self, state_batch, actions_batch, reward_batch, terminated_batch,
-              obs_batch, available_actions_batch, filled_batch):
+              obs_batch, available_actions_batch, filled_batch, local_qs, target_local_q):
         """
         Args:
             state_batch (paddle.Tensor):             (batch_size, T, state_shape)
@@ -78,7 +98,6 @@ class QMIX(parl.Algorithm):
             td_error (float): train TD error
         """
         batch_size = state_batch.shape[0]
-        episode_len = state_batch.shape[1]
         self._init_hidden_states(batch_size)
         n_actions = available_actions_batch.shape[-1]
 
@@ -86,27 +105,8 @@ class QMIX(parl.Algorithm):
         actions_batch = actions_batch[:, :-1, :]
         terminated_batch = terminated_batch[:, :-1, :]
         filled_batch = filled_batch[:, :-1, :]
-
         mask = (1 - filled_batch) * (1 - terminated_batch)
 
-        local_qs = []
-        target_local_qs = []
-        
-        for t in range(episode_len):
-            obs = obs_batch[:, t, :, :]
-            obs = obs.reshape(shape=(-1, obs_batch.shape[-1]))
-            local_q, self.hidden_states = self.agent_model(
-                obs, self.hidden_states)
-            local_q = local_q.reshape(shape=(batch_size, self.n_agents, -1))
-            local_qs.append(local_q)
-
-            target_local_q, self.target_hidden_states = self.target_agent_model(
-                obs, self.target_hidden_states)
-            target_local_q = target_local_q.reshape(
-                shape=(batch_size, self.n_agents, -1))
-            target_local_qs.append(target_local_q)
-        print("batch_size:{}, eposode_len:{}".format( batch_size, episode_len ))
-        
         local_qs = paddle.stack(local_qs, axis=1)
         target_local_qs = paddle.stack(target_local_qs[1:], axis=1)
 

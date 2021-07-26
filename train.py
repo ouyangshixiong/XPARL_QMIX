@@ -85,11 +85,9 @@ class Learner(object):
                     self.learn_steps += 1
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
-                    bt1 = time.time()
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
                                             obs_batch, available_actions_batch,
                                             filled_batch)
-                    print("time cost for learning {}s".format((time.time()-bt1)))
                     # update remote networks
                     if self.learn_steps % self.config['update_target_interval'] == 0:
                         update_target_q = True
