@@ -41,8 +41,8 @@ QMixConfig:
 
 QMixConfig = {
     'master_address': 'localhost:8010',
-    'actor_num': 5,
-    'env_num': 5,
+    'actor_num': 2,
+    'env_num': 2,
     'sample_batch_episode': 1,
     'log_metrics_interval_s': 1,
     'scenario': '1c3s5z',

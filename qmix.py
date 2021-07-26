@@ -63,10 +63,12 @@ class QMIX(parl.Algorithm):
         return self.agent_model(obs, hidden_state)
 
     def localQ(self, state_batch, obs_batch):
-        local_qs = []
-        target_local_qs = []
         batch_size = state_batch.shape[0]
         episode_len = state_batch.shape[1]
+        self._init_hidden_states(batch_size)
+
+        local_qs = []
+        target_local_qs = []
         for t in range(episode_len):
             obs = obs_batch[:, t, :, :]
             obs = obs.reshape(shape=(-1, obs_batch.shape[-1]))
@@ -80,10 +82,10 @@ class QMIX(parl.Algorithm):
             target_local_q = target_local_q.reshape(
                 shape=(batch_size, self.n_agents, -1))
             target_local_qs.append(target_local_q)
-        return local_qs, target_local_q
+        return local_qs, target_local_qs
 
     def learn(self, state_batch, actions_batch, reward_batch, terminated_batch,
-              obs_batch, available_actions_batch, filled_batch, local_qs, target_local_q):
+              obs_batch, available_actions_batch, filled_batch, local_qs, target_local_qs):
         """
         Args:
             state_batch (paddle.Tensor):             (batch_size, T, state_shape)
@@ -97,8 +99,7 @@ class QMIX(parl.Algorithm):
             loss (float): train loss
             td_error (float): train TD error
         """
-        batch_size = state_batch.shape[0]
-        self._init_hidden_states(batch_size)
+
         n_actions = available_actions_batch.shape[-1]
 
         reward_batch = reward_batch[:, :-1, :]
