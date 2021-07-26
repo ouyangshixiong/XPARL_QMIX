@@ -5,7 +5,7 @@ from env_wrapper import SC2EnvWrapper
 from replay_buffer import EpisodeExperience, EpisodeReplayBuffer
 from qmixer_model import QMixerModel
 from rnn_model import RNNModel
-from parl.algorithms import QMIX
+from qmix import QMIX
 from qmix_agent import QMixAgent
 import parl
 from parl.utils import logger
@@ -71,7 +71,6 @@ class Learner(object):
         ]
         mean_loss = []
         mean_td_error = []
-        bt = time.time()
         for sample_data in sample_datas:
             for data in sample_data:
                 #if 'steps' == data:
@@ -86,9 +85,11 @@ class Learner(object):
                     self.learn_steps += 1
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
+                    bt1 = time.time()
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
                                             obs_batch, available_actions_batch,
                                             filled_batch)
+                    print("time cost for learning {}s".format((time.time()-bt1)))
                     # update remote networks
                     if self.learn_steps % self.config['update_target_interval'] == 0:
                         update_target_q = True
@@ -107,8 +108,6 @@ class Learner(object):
                         
                     mean_loss.append(loss)
                     mean_td_error.append(td_error)
-        et = time.time()
-        print("time cost for learn func is:{}s.".format( et-bt ))
 
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None

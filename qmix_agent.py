@@ -17,7 +17,7 @@ import parl
 import numpy as np
 from utils import AvailableActionsSampler
 import os
-
+import time
 
 class QMixAgent(parl.Agent):
     def __init__(self, algorithm, exploration_start, min_exploration,
