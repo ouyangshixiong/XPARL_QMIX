@@ -87,7 +87,7 @@ class QMixAgent(parl.Agent):
         return actions
 
     def learn(self, state_batch, actions_batch, reward_batch, terminated_batch,
-              obs_batch, available_actions_batch, filled_batch):
+              available_actions_batch, filled_batch, local_qs, target_local_qs):
         '''
         Args:
             state (np.ndarray):                   (batch_size, T, state_shape)
@@ -111,15 +111,16 @@ class QMixAgent(parl.Agent):
         actions_batch = paddle.to_tensor(actions_batch, dtype='int64')
         reward_batch = paddle.to_tensor(reward_batch, dtype='float32')
         terminated_batch = paddle.to_tensor(terminated_batch, dtype='float32')
-        obs_batch = paddle.to_tensor(obs_batch, dtype='float32')
         available_actions_batch = paddle.to_tensor(
             available_actions_batch, dtype='int64')
         filled_batch = paddle.to_tensor(filled_batch, dtype='float32')
-        bt1 = time.time()
-        local_qs, target_local_q = self.alg.localQ(state_batch, obs_batch)
-        bt2 = time.time()
         mean_loss, mean_td_error = self.alg.learn(
             state_batch, actions_batch, reward_batch, terminated_batch,
-            obs_batch, available_actions_batch, filled_batch, local_qs, target_local_q)
-        print("part1:{}, part2:{}".format( (bt2-bt1), (time.time()-bt2) ))
+            available_actions_batch, filled_batch, local_qs, target_local_qs)
         return mean_loss, mean_td_error
+
+    def localQ(self, state_batch, obs_batch):
+        state_batch = paddle.to_tensor(state_batch, dtype='float32')
+        obs_batch = paddle.to_tensor(obs_batch, dtype='float32')
+        return self.alg.localQ(state_batch, obs_batch)
+

@@ -81,13 +81,28 @@ class Learner(object):
                     for episode_experience in sample_data[data]:
                         self.rpm.add(episode_experience)
             if self.rpm.count > self.config['memory_warmup_size']:
-                for _ in range(self.config['sample_batch_episode']):
+                # exec slow code in remote actor, calc local_qs, target_local_qs
+                futureObjs = []
+                rpm_sample = defaultdict(list)
+                for index in range(self.config['sample_batch_episode']):
                     self.learn_steps += 1
                     s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                             filled_batch = self.rpm.sample_batch(self.config['batch_size'])
+                    rpm_sample[index] = [s_batch, a_batch, r_batch, t_batch, available_actions_batch, filled_batch]
+                    #local_qs, target_local_qs
+                    print(type(index))
+                    print(type(s_batch))
+                    print(type(obs_batch.tolist()))
+                    futureObj = self.remote_actors[index].localQ(index, s_batch, obs_batch.tolist())
+                    futureObjs.append(futureObj)
+
+                for futureObj in futureObjs:
+                    index, local_qs, target_local_qs = futureObj.get()
+                    s_batch, a_batch, r_batch, t_batch, available_actions_batch, filled_batch = rpm_sample[index]
+                    #learn
                     loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
-                                            obs_batch, available_actions_batch,
-                                            filled_batch)
+                                            available_actions_batch, filled_batch,
+                                            local_qs, target_local_qs)
                     # update remote networks
                     if self.learn_steps % self.config['update_target_interval'] == 0:
                         update_target_q = True

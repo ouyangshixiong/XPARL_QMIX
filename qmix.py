@@ -85,7 +85,7 @@ class QMIX(parl.Algorithm):
         return local_qs, target_local_qs
 
     def learn(self, state_batch, actions_batch, reward_batch, terminated_batch,
-              obs_batch, available_actions_batch, filled_batch, local_qs, target_local_qs):
+              available_actions_batch, filled_batch, local_qs, target_local_qs):
         """
         Args:
             state_batch (paddle.Tensor):             (batch_size, T, state_shape)

@@ -84,5 +84,9 @@ class Actor(object):
     
     def update_target_network(self, agent_params, qmix_params):
         self.algorithm.target_agent_model.set_weights(agent_params)
-        self.algorithm.target_qmixer_model.set_weights(qmix_params)        
+        self.algorithm.target_qmixer_model.set_weights(qmix_params)
+
+    def localQ(self, index, s_batch, obs_batch):
+        local_qs, target_local_qs = self.qmix_agent.localQ(s_batch, obs_batch)   
+        return index, local_qs, target_local_qs     
 
