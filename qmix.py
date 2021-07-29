@@ -79,12 +79,14 @@ class QMIX(parl.Algorithm):
             local_q, self.hidden_states = self.agent_model(
                 obs, self.hidden_states)
             local_q = local_q.reshape(shape=(batch_size, self.n_agents, -1))
+            local_q = local_q.numpy()
             local_qs.append(local_q)
 
             target_local_q, self.target_hidden_states = self.target_agent_model(
                 obs, self.target_hidden_states)
             target_local_q = target_local_q.reshape(
                 shape=(batch_size, self.n_agents, -1))
+            target_local_q = target_local_q.numpy()
             target_local_qs.append(target_local_q)
         print('end...')
         return local_qs, target_local_qs

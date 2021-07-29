@@ -2,6 +2,7 @@ from qmixer_model import QMixerModel
 from rnn_model import RNNModel
 from qmix import QMIX
 import parl
+import time
 
 @parl.remote_class(wait=False)
 class Calc(object):
@@ -16,7 +17,7 @@ class Calc(object):
                     config['gamma'], config['lr'], config['clip_grad_norm'])
 
     def localQ(self, index, s_batch, obs_batch):
-        #local_qs, target_local_qs = self.algorithm.localQ(s_batch, obs_batch)
-        local_qs = []
-        target_local_qs = []
+        bt = time.time()
+        local_qs, target_local_qs = self.algorithm.localQ(s_batch, obs_batch)
+        print("Sample_index:{}, time cost for localQ:{}".format(index, time.time()-bt))
         return index, local_qs, target_local_qs  
