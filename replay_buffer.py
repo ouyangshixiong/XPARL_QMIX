@@ -73,6 +73,7 @@ class EpisodeReplayBuffer(object):
             batch = random.sample(self.buffer, batch_size)
         s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
                 filled_batch = [], [], [], [], [], [], []
+
         for episode in batch:
             s, a, r, t, obs, available_actions, filled = episode.get_data()
             s_batch.append(s)
@@ -82,7 +83,6 @@ class EpisodeReplayBuffer(object):
             obs_batch.append(obs)
             available_actions_batch.append(available_actions)
             filled_batch.append(filled)
-
         filled_batch = np.array(filled_batch)
         r_batch = np.array(r_batch)
         t_batch = np.array(t_batch)
@@ -90,6 +90,5 @@ class EpisodeReplayBuffer(object):
         obs_batch = np.array(obs_batch)
         available_actions_batch = np.array(available_actions_batch).astype(
             'long')
-
         return s_batch, a_batch, r_batch, t_batch, obs_batch,\
                 available_actions_batch, filled_batch

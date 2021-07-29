@@ -119,8 +119,8 @@ class QMixAgent(parl.Agent):
             available_actions_batch, filled_batch, local_qs, target_local_qs)
         return mean_loss, mean_td_error
 
-    def localQ(self, state_batch, obs_batch):
-        state_batch = paddle.to_tensor(state_batch, dtype='float32')
-        obs_batch = paddle.to_tensor(obs_batch, dtype='float32')
-        return self.alg.localQ(state_batch, obs_batch)
+    #def localQ(self, state_batch, obs_batch):
+        #state_batch = paddle.to_tensor(state_batch, dtype='float32')
+        #obs_batch = paddle.to_tensor(obs_batch, dtype='float32')
+        #return self.alg.localQ(state_batch, obs_batch)
 

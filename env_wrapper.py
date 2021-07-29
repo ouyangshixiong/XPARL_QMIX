@@ -83,3 +83,6 @@ class SC2EnvWrapper(object):
 
     def save(self):
         self.env.save_replay()
+
+    def close(self):
+        self.env.close()

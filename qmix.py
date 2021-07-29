@@ -4,6 +4,7 @@ import parl
 from copy import deepcopy
 import paddle.nn.functional as F
 import time
+import numpy as np
 
 class QMIX(parl.Algorithm):
     def __init__(self,
@@ -63,12 +64,15 @@ class QMIX(parl.Algorithm):
         return self.agent_model(obs, hidden_state)
 
     def localQ(self, state_batch, obs_batch):
+        state_batch = paddle.to_tensor(state_batch, dtype='float32')
+        obs_batch = paddle.to_tensor(obs_batch, dtype='float32')
         batch_size = state_batch.shape[0]
         episode_len = state_batch.shape[1]
         self._init_hidden_states(batch_size)
 
         local_qs = []
         target_local_qs = []
+        print('begin...')
         for t in range(episode_len):
             obs = obs_batch[:, t, :, :]
             obs = obs.reshape(shape=(-1, obs_batch.shape[-1]))
@@ -82,6 +86,7 @@ class QMIX(parl.Algorithm):
             target_local_q = target_local_q.reshape(
                 shape=(batch_size, self.n_agents, -1))
             target_local_qs.append(target_local_q)
+        print('end...')
         return local_qs, target_local_qs
 
     def learn(self, state_batch, actions_batch, reward_batch, terminated_batch,
