@@ -13,6 +13,7 @@ English Version:
 * pull this code
 * start xparl using command line: xparl start --port 8010 --cpu_num x
 * start training using command line: python train.py
+![image]https://github.com/ouyangshixiong/XPARL_QMIX/blob/master/xparl_qmix.jpg
 
 中文版：
 ### XPARL QMIX算法实现
@@ -30,6 +31,8 @@ English Version:
 * 拉这份代码到本地
 * 先启动xparl集群，开启分布式cpu训练：xparl start --port 8010 --cpu_num x 。其中x为需要启动的cpu数，需要跟实际cpu数目匹配。
 * 在命令行执行： python train.py 开启训练。可以同步开启visualdl，查看训练效果。
+
+![image]https://github.com/ouyangshixiong/XPARL_QMIX/blob/master/xparl_qmix.jpg
 
 
 
