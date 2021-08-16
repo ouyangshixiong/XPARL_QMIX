@@ -74,6 +74,7 @@ class Learner(object):
     def step(self):
         self.central_steps += 1
         # get the total train data of all the actors.
+        c1 = time.time()
         sample_data_object_ids = [
             remote_actor.sample() for remote_actor in self.remote_actors
         ]
@@ -91,63 +92,69 @@ class Learner(object):
                 if 'episode_experience' == data:
                     for episode_experience in sample_data[data]:
                         self.rpm.add(episode_experience)
-            if self.rpm.count > self.config['memory_warmup_size']:
-                # exec slow code in remote calc_q
-                rpm_sample = []
-                for i in range(self.config['calc_num']):
-                    self.learn_steps += 1
-                    s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
-                            filled_batch = self.rpm.sample_batch(self.config['batch_size'])
-                    rpm_sample.append([s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch, filled_batch])
+        print("collect data time cost:{}".format( time.time()-c1 ))
+        if self.rpm.count > self.config['memory_warmup_size']:
+            # exec slow code in remote calc_q
+            rpm_sample = []
+            s1 = time.time()
+            for i in range(self.config['calc_num']):
+                self.learn_steps += 1
+                s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch,\
+                        filled_batch = self.rpm.sample_batch(self.config['batch_size'])
+                rpm_sample.append([s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch, filled_batch])
+            print("sample_bach time cost:{}".format( time.time()-s1 ))
 
-                futureObjs = []
-                for i in range(len(rpm_sample)):
-                    s, _, _, _, o, _, _ = rpm_sample[i]
-                    s = deepcopy(s)
-                    o = o.tolist()
-                    o = deepcopy(o)
-                    futureObj = self.remote_calcs[i].localQ(i, s, o)
-                    futureObjs.append(futureObj)
+            futureObjs = []
+            for i in range(len(rpm_sample)):
+                r1 = time.time()
+                s, _, _, _, o, _, _ = rpm_sample[i]
+                s = deepcopy(s)
+                o = o.tolist()
+                o = deepcopy(o)
+                futureObj = self.remote_calcs[i].localQ(i, s, o)
+                futureObjs.append(futureObj)
+                print("calc_q, Sample_index:{}, send out data time cost:{}".format( i, time.time()-r1 ))
 
-                # t2 = time.time()
-                # s, _, _, _, o, _, _ = rpm_sample[1]
-                # local_qs, target_local_qs = self.algorithm.localQ(s, o)
-                # print("time cost for localQ:{}".format(time.time() - t2 ))
-                for futureObj in futureObjs:
-                    t3 = time.time()
-                    index, local_qs, target_local_qs = futureObj.get()
-                    t4 = time.time()
-                    local_qs_tensor = []
-                    target_local_qs_tensor = []
-                    for local_q in local_qs:
-                        local_qs_tensor.append(paddle.to_tensor(local_q))
-                    for target_local_q in target_local_qs:
-                        target_local_qs_tensor.append(paddle.to_tensor(target_local_q))
+            # t2 = time.time()
+            # s, _, _, _, o, _, _ = rpm_sample[1]
+            # local_qs, target_local_qs = self.algorithm.localQ(s, o)
+            # print("time cost for localQ:{}".format(time.time() - t2 ))
+            for futureObj in futureObjs:
+                t3 = time.time()
+                index, local_qs, target_local_qs = futureObj.get()
+                t4 = time.time()
+                local_qs_tensor = []
+                target_local_qs_tensor = []
+                for local_q in local_qs:
+                    local_qs_tensor.append(paddle.to_tensor(local_q))
+                for target_local_q in target_local_qs:
+                    target_local_qs_tensor.append(paddle.to_tensor(target_local_q))
 
-                    s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch, filled_batch = rpm_sample[index]
-                    #learn
-                    loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
-                                            available_actions_batch, filled_batch,
-                                            local_qs_tensor, target_local_qs_tensor)
-                    # update remote networks
-                    if self.learn_steps % self.config['update_target_interval'] == 0:
-                        update_target_q = True
-                        agent_target = self.algorithm.target_agent_model.get_weights()
-                        qmix_target = self.algorithm.target_qmixer_model.get_weights()
-                        self.target_update_count += 1
-                    else:
-                        update_target_q = False
+                s_batch, a_batch, r_batch, t_batch, obs_batch, available_actions_batch, filled_batch = rpm_sample[index]
+                #learn
+                loss, td_error = self.qmix_agent.learn(s_batch, a_batch, r_batch, t_batch,
+                                        available_actions_batch, filled_batch,
+                                        local_qs_tensor, target_local_qs_tensor)
+                # update remote networks
+                if self.learn_steps % self.config['update_target_interval'] == 0:
+                    update_target_q = True
+                    agent_target = self.algorithm.target_agent_model.get_weights()
+                    qmix_target = self.algorithm.target_qmixer_model.get_weights()
+                    self.target_update_count += 1
+                else:
+                    update_target_q = False
 
-                    for remote_actor in self.remote_actors:
-                        agent_network_params = self.agent_model.get_weights()
-                        qmix_network_params = self.qmixer_model.get_weights()
-                        remote_actor.update_network(agent_network_params, qmix_network_params)
-                        if update_target_q:
-                            remote_actor.update_target_network(agent_target, qmix_target)
-                        
-                    mean_loss.append(loss)
-                    mean_td_error.append(td_error)
-                    print('Sample_index:{}, time cost for wait calc_q result:{}, learning time:{}'.format(index, t4-t3, time.time()-t4 ))
+                for remote_actor in self.remote_actors:
+                    agent_network_params = self.agent_model.get_weights()
+                    qmix_network_params = self.qmixer_model.get_weights()
+                    remote_actor.update_network(agent_network_params, qmix_network_params)
+                    if update_target_q:
+                        remote_actor.update_target_network(agent_target, qmix_target)
+                    
+                mean_loss.append(loss)
+                mean_td_error.append(td_error)
+                print('Sample_index:{}, time cost for wait calc_q:{}, learning time:{}'.format(index, t4-t3, time.time()-t4 ))
+            
         mean_loss = np.mean(mean_loss) if mean_loss else None
         mean_td_error = np.mean(mean_td_error) if mean_td_error else None
         return mean_loss, mean_td_error
